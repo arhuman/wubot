@@ -32,9 +32,6 @@ table {
   border-collapse: collapse;
 }
 
-tr {
-}
-
 td {
   border-color: #000;
   border-width: 1px 0px 0 0;
@@ -77,9 +74,9 @@ th.scheduled, th.deadline, th.lastupdate {
   width: 12%;
 }
 
-td.body {
+pre {
   font-size: 10;
-  font-family: Monaco,monospace;
+  font-family: Anonymous Pro,Monaco,monospace;
 }
 
 input {
