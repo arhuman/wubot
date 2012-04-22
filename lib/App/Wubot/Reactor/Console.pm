@@ -32,6 +32,8 @@ my $valid_colors = { blue    => 'blue',
                      magenta => 'magenta',
                  };
 
+my $HALF_DAY = 60 * 60 * 12;
+
 sub react {
     my ( $self, $message, $config ) = @_;
 
@@ -54,8 +56,23 @@ sub react {
         $subject = "[$message->{key}] $subject";
     }
 
-    my $date = strftime( "%Y/%m/%d %H:%M:%S", localtime( $message->{lastupdate} || time ) );
-    $subject = "$date> $subject";
+    my $now = time;
+
+    my $date;
+    if ( $now - $message->{lastupdate} > $HALF_DAY ) {
+        $date = strftime( "%Y/%m/%d %H:%M:%S", localtime( $message->{lastupdate} || $now ) );
+    }
+    else {
+        $date = strftime( "%H:%M:%S", localtime( $message->{lastupdate} || $now ) );
+    }
+
+    if ( $config->{checksum} && $message->{checksum} ) {
+        $message->{checksum} =~ m|^(........)|;
+        $subject = "$date $1> $subject";
+    }
+    else {
+        $subject = "$date> $subject";
+    }
 
     my $color = 'white';
     if ( $message->{color} && $valid_colors->{ $message->{color} } ) {
