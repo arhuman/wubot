@@ -403,8 +403,6 @@ sub insert_or_update {
 
     $self->logger->debug( "inserting into $table" );
     return $self->insert( $table, $update, $schema );
-
-    return 1;
 }
 
 =item select( $options_h )
