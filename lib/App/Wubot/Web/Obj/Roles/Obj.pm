@@ -4,10 +4,7 @@ use Moose::Role;
 # VERSION
 
 use Date::Manip;
-use HTML::Strip;
 use POSIX qw(strftime);
-use Text::Wrap;
-use URI::Find;
 
 use App::Wubot::Logger;
 use App::Wubot::SQLite;
@@ -111,12 +108,12 @@ has 'body'             => ( is => 'ro',
                                 my $body = $self->db_hash->{body};
                                 utf8::decode( $body );
 
-                                $body =~ s|\<br\>|\n\n|g;
-                                $Text::Wrap::columns = 80;
-                                my $hs = HTML::Strip->new();
-                                $body = $hs->parse( $body );
-                                $body =~ s|\xA0| |g;
-                                $body = fill( "", "", $body);
+                                # $body =~ s|\<br\>|\n\n|g;
+                                # $Text::Wrap::columns = 80;
+                                # my $hs = HTML::Strip->new();
+                                # $body = $hs->parse( $body );
+                                # $body =~ s|\xA0| |g;
+                                # $body = fill( "", "", $body);
                             }
                         );
 
@@ -190,35 +187,6 @@ has 'text'             => ( is => 'ro',
 
                                 return join( "\n", @return );
                             },
-                        );
-
-has 'urls'             => ( is => 'ro',
-                            isa => 'ArrayRef[Str]',
-                            lazy => 1,
-                            default => sub {
-                                my $self = shift;
-
-                                my %urls;
-
-                                URI::Find->new( sub {
-                                                    my ( $url ) = @_;
-                                                    $url =~ s|\]\[.*$||;
-                                                    $urls{$url}++;
-                                                }
-                                            )->find(\$self->text);
-
-                                for my $url ( keys %urls ) {
-                                    if ( $url =~ m|doubleclick| ) {
-                                        delete $urls{$url};
-                                    }
-                                }
-
-                                if ( $self->link ) {
-                                    delete $urls{ $self->link };
-                                }
-
-                                return [ sort keys %urls ];
-                            }
                         );
 
 has 'image'            => ( is => 'rw',

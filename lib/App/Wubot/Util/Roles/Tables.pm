@@ -117,9 +117,16 @@ sub update {
         $self->logger->logdie( "ERROR: can't update without id field: $id_field" );
     }
 
+    # insert or update the row
     $self->sql->insert_or_update( $self->table, $item_h, { $id_field => $item_h->{ $id_field } }, $self->schema );
 
-    return $item_h;
+    # return the new row
+    my @return = $self->sql->select( { tablename => $self->table,
+                                       where     => { $id_field => $item_h->{ $id_field } },
+                                       schema    => $self->schema,
+                                   } );
+
+    return $return[0];
 }
 
 
