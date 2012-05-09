@@ -8,6 +8,7 @@ use DBI;
 use DBD::SQLite;
 use Devel::StackTrace;
 use FindBin;
+use POSIX qw(strftime);
 use SQL::Abstract;
 use YAML::XS;
 
@@ -637,7 +638,8 @@ sub get_prepared {
                 $self->create_table( $table, $schema );
                 $self->{tables}->{$table} = 1;
                 next RETRY;
-            } elsif ( $error =~ m/(?:has no column named|no such column\:) (\S+)/ ) {
+            }
+            elsif ( $error =~ m/(?:has no column named|no such column\:) (\S+)/ ) {
                 my $column = $1;
 
                 unless ( $column ) { $self->logger->logcroak( "ERROR: failed to capture a column name!"  ) }
@@ -650,7 +652,24 @@ sub get_prepared {
                 } else {
                     $self->logger->logcroak( "Missing column $column not defined in schema for $table" );
                 }
-            } else {
+            }
+            elsif ( $error =~ m/database disk image is malformed/ ) {
+                $self->logger->fatal( "ERROR: $error" );
+
+                my $date = strftime( "%Y-%m-%d.%H.%M.%S", localtime() );
+                $self->disconnect();
+
+                my $file = $self->file;
+                my $backup = join( ".", $file, 'malformed', $date );
+                $self->logger->error( "backing up db to $backup" );
+
+                system( "mv", $file, $backup );
+
+                $self->logger->error( "reconnecting..." );
+                $self->reconnect();
+                next RETRY;
+            }
+            else {
                 $self->logger->logcroak( "Unhandled error: $error" );
             }
 
@@ -724,6 +743,25 @@ sub connect {
     return $dbh;
 }
 
+=item reconnect()
+
+Reconnect a database handle that was previously disconnected.
+
+This method calls disconnect() first if the global sql handle for the
+specified sql file has not yet been removed.
+
+=cut
+
+sub reconnect {
+    my ( $self ) = @_;
+
+    if ( $sql_handles{ $self->file } ) {
+        $self->disconnect;
+    }
+
+    $self->dbh( $self->connect );
+}
+
 =item disconnect()
 
 Close the database handle for a database by calling the disconnect()
@@ -735,6 +773,8 @@ sub disconnect {
     my ( $self ) = @_;
 
     $self->dbh->disconnect;
+
+    delete $sql_handles{ $self->file };
 }
 
 =item get_schema( $table, $directory )

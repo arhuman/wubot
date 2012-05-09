@@ -677,7 +677,99 @@ test "testing disconnect" => sub {
            );
 };
 
+test "testing reconnect" => sub {
+    my ($self) = @_;
 
+    $self->reset_sqlite;
+
+    my $table = "test_table_bar";
+    my $schema = { column1 => 'INT',
+                   column2 => 'VARCHAR(16)',
+               };
+
+    $self->sqlite->insert( $table, { column1 => 123, column2 => "foo" }, $schema );
+
+    $self->sqlite->disconnect();
+
+    ok( $self->sqlite->reconnect(),
+        "Closing SQLite file"
+    );
+
+    is( ( $self->sqlite->query( "SELECT * FROM $table" ) )[0]->{column2},
+        'foo',
+        "Checking that we can select data inserted in the table prior to disconnecting"
+    );
+};
+
+test "testing reconnect without disconnect" => sub {
+    my ($self) = @_;
+
+    $self->reset_sqlite;
+
+    my $table = "test_table_foo";
+    my $schema = { column1 => 'INT',
+                   column2 => 'VARCHAR(16)',
+               };
+
+    $self->sqlite->insert( $table, { column1 => 123, column2 => "foo" }, $schema );
+
+    ok( $self->sqlite->reconnect(),
+        "Closing SQLite file"
+    );
+
+    is( ( $self->sqlite->query( "SELECT * FROM $table" ) )[0]->{column2},
+        'foo',
+        "Checking that we can select data inserted in the table prior to disconnecting"
+    );
+};
+
+test "database is malformed" => sub {
+    my ($self) = @_;
+
+    my $tempdir = tempdir( "/tmp/tmpdir-XXXXXXXXXX", CLEANUP => 1 );
+    my $sqldb1   = "$tempdir/test1.sql";
+    my $sqldb2   = "$tempdir/test2.sql";
+
+    my $table = "test_table_5";
+    my $schema = { column1 => 'INT' };
+
+    my $sql1     = App::Wubot::SQLite->new( { file => $sqldb1 } );
+    $sql1->insert( $table, { column1 => 5 }, $schema );
+    $sql1->disconnect();
+
+    local undef $/;
+
+    open(my $in, "<", $sqldb1)
+        or die "Couldn't open $sqldb1 for reading: $!\n";
+    my $content = <$in>;
+    close $in or die "Error closing file: $!\n";
+
+    # destruction!
+    $content =~ s|\r|\n|g;
+
+    # write it out to a new file, the connection to the old one is
+    # cached
+    open(my $out, ">", $sqldb2)
+        or die "Couldn't open $sqldb2 for writing: $!\n";
+    print $out $content;
+    close $out or die "Error closing file: $!\n";
+
+    my $sql2     = App::Wubot::SQLite->new( { file => $sqldb2 } );
+
+    ok( $sql2->insert( $table, { column1 => 6 }, $schema ),
+        "Inserting hash into table with data value 0"
+    );
+
+    my @results = $sql2->query( "SELECT * FROM $table" );
+    is( scalar @results,
+        1,
+        "Checking that only data inserted after recovery was returned"
+    );
+    is( $results[0]->{column1},
+        6,
+        "Checking that data inserted after the recovery was correct"
+    );
+};
 
 run_me;
 done_testing;
