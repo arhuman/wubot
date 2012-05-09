@@ -656,17 +656,19 @@ sub get_prepared {
             elsif ( $error =~ m/database disk image is malformed/ ) {
                 $self->logger->fatal( "ERROR: $error" );
 
-                my $date = strftime( "%Y-%m-%d.%H.%M.%S", localtime() );
                 $self->disconnect();
 
-                my $file = $self->file;
+                my $file   = $self->file;
+                my $date   = strftime( "%Y-%m-%d.%H.%M.%S", localtime() );
                 my $backup = join( ".", $file, 'malformed', $date );
-                $self->logger->error( "backing up db to $backup" );
 
+                $self->logger->error( "backing up db to $backup" );
                 system( "mv", $file, $backup );
 
                 $self->logger->error( "reconnecting..." );
                 $self->reconnect();
+
+                $self->logger->warn( "ok, reconnected, retrying command..." );
                 next RETRY;
             }
             else {
